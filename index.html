@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Action Beats Overthinking</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #000000;
+            color: #ffffff;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+        .glow-text {
+            text-shadow: 0 0 12px rgba(255, 255, 255, 0.8), 0 0 25px rgba(255, 255, 255, 0.4);
+        }
+        .glow-tiktok {
+            box-shadow: 0 0 20px rgba(254, 44, 85, 0.5), 0 0 35px rgba(37, 244, 238, 0.4);
+        }
+        .glow-tiktok:hover {
+            box-shadow: 0 0 28px rgba(254, 44, 85, 0.8), 0 0 45px rgba(37, 244, 238, 0.7);
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body class="flex flex-col justify-between h-screen w-screen bg-black select-none">
+
+    <!-- Container Utama Animasi (Canvas) -->
+    <main class="relative flex-1 w-full h-full flex items-center justify-center overflow-hidden">
+        <canvas id="animationCanvas"></canvas>
+
+        <!-- Overlay Text & UI Scene 3 -->
+        <div id="scene3Overlay" class="absolute inset-0 flex flex-col items-center justify-end pb-32 pointer-events-none opacity-0 transition-opacity duration-1000">
+            <h1 class="text-2xl sm:text-4xl font-bold tracking-widest text-center uppercase text-white glow-text mb-6 px-4">
+                Action Beats Overthinking
+            </h1>
+            
+            <a id="tiktokBtn" href="https://www.tiktok.com/@apanih128" target="_blank" rel="noopener noreferrer" 
+               class="pointer-events-auto flex items-center gap-3 px-6 py-3 rounded-full bg-gradient-to-r from-[#fe2c55] via-black to-[#25f4ee] border border-white/30 text-white font-medium text-sm transition-all transform hover:scale-105 active:scale-95 glow-tiktok">
+                <svg class="w-5 h-5 fill-current" viewBox="0 0 448 512">
+                    <path d="M448,209.91a210.06,210.06,0,0,1-122.77-39.25V349.38A162.55,162.55,0,1,1,185,188.31V258.2a93.62,93.62,0,1,0,59.32,87.42V0h69.44a140.89,140.89,0,0,0,13.8,40.16A141.67,141.67,0,0,0,364,74.92a140.54,140.54,0,0,0,84,24.16Z"/>
+                </svg>
+                <span>Kunjungi TikTok @apanih128</span>
+            </a>
+        </div>
+    </main>
+
+    <!-- Bottom Controls (Navigasi Panah & Dots) -->
+    <footer class="absolute bottom-6 left-0 w-full flex flex-col items-center justify-center gap-2 z-20 pointer-events-auto">
+        <button id="nextBtn" aria-label="Lanjut Adegan" 
+                class="w-14 h-14 rounded-full border border-white/30 bg-white/10 backdrop-blur-md text-white flex items-center justify-center transition-all duration-300 transform active:scale-90 hover:bg-white/20 hover:border-white shadow-lg shadow-white/10">
+            <svg class="w-6 h-6 stroke-current transform transition-transform" fill="none" stroke-width="2.5" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+                <polyline points="12 5 19 12 12 19"></polyline>
+            </svg>
+        </button>
+        <div class="flex gap-2 mt-1">
+            <span id="dot1" class="w-2 h-2 rounded-full bg-white transition-all duration-300"></span>
+            <span id="dot2" class="w-2 h-2 rounded-full bg-white/30 transition-all duration-300"></span>
+            <span id="dot3" class="w-2 h-2 rounded-full bg-white/30 transition-all duration-300"></span>
+        </div>
+    </footer>
+
+    <!-- Logic Engine Animasi -->
+    <script>
+        const canvas = document.getElementById('animationCanvas');
+        const ctx = canvas.getContext('2d');
+        const nextBtn = document.getElementById('nextBtn');
+        const scene3Overlay = document.getElementById('scene3Overlay');
+        const dots = [document.getElementById('dot1'), document.getElementById('dot2'), document.getElementById('dot3')];
+
+        let currentScene = 1;
+        let lastTime = performance.now();
+        let time = 0;
+
+        let width = 0;
+        let height = 0;
+        let scale = 1;
+        let groundY = 0;
+
+        // Inisialisasi 20 Partikel Latar Belakang (Bintang/Titik yang Berpindah-pindah)
+        const backgroundParticles = [];
+        for (let i = 0; i < 20; i++) {
+            backgroundParticles.push({
+                x: Math.random() * 1000,
+                y: Math.random() * 600,
+                radius: Math.random() * 1.5 + 0.5,
+                speedX: (Math.random() - 0.5) * 15, // Kecepatan gerak horizontal pelan
+                speedY: (Math.random() - 0.5) * 10, // Kecepatan gerak vertikal pelan
+                alpha: Math.random() * 0.5 + 0.2
+            });
+        }
+
+        const box = {
+            size: 65,
+            cornerRadius: 0,
+            rotation: 0,
+            pushDistance: 0
+        };
+
+        function resizeCanvas() {
+            const dpr = window.devicePixelRatio || 1;
+            width = canvas.parentElement.clientWidth;
+            height = canvas.parentElement.clientHeight;
+
+            canvas.width = width * dpr;
+            canvas.height = height * dpr;
+            ctx.scale(dpr, dpr);
+
+            scale = Math.min(width / 450, height / 600);
+            if (scale < 0.8) scale = 0.8;
+            if (scale > 1.25) scale = 1.25;
+
+            groundY = height * 0.62;
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Gambar 20 Partikel Latar Belakang yang Berpindah-pindah
+        function drawBackgroundParticles(dt) {
+            ctx.save();
+            backgroundParticles.forEach(p => {
+                // Update posisi partikel supaya berpindah-pindah halus
+                p.x += p.speedX * dt;
+                p.y += p.speedY * dt;
+
+                // Pantulkan jika melewati batas layar
+                if (p.x < 0) p.x = width;
+                if (p.x > width) p.x = 0;
+                if (p.y < 0) p.y = height;
+                if (p.y > height) p.y = 0;
+
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius * scale, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(255, 255, 255, ${p.alpha})`;
+                ctx.fill();
+            });
+            ctx.restore();
+        }
+
+        // Garis Tanah dengan Efek Cahaya Redup
+        function drawGround() {
+            ctx.beginPath();
+            ctx.moveTo(0, groundY);
+            ctx.lineTo(width, groundY);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+
+        // Efek Lampu / Glow di Atas Kepala Tokoh
+        function drawHeadLight(x, y, color) {
+            ctx.save();
+            const gradient = ctx.createRadialGradient(x, y - 60 * scale, 2, x, y - 60 * scale, 50 * scale);
+            gradient.addColorStop(0, color);
+            gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(x, y - 60 * scale, 50 * scale, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+
+        // Stick Figure Kiri (Overthinking)
+        function drawLeftFigure(x, y, scale, time) {
+            drawHeadLight(x, y, 'rgba(100, 180, 255, 0.15)');
+
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 3.5;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+
+            const headRadius = 13 * scale;
+            const bodyLen = 42 * scale;
+            const headY = -bodyLen - headRadius * 2;
+            const breath = Math.sin(time * 2.5) * 1.5;
+
+            // Kepala
+            ctx.beginPath();
+            ctx.arc(0, headY + breath, headRadius, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Badan
+            ctx.beginPath();
+            ctx.moveTo(0, headY + headRadius * 2 + breath);
+            ctx.lineTo(0, -15 * scale);
+            ctx.stroke();
+
+            // Kaki
+            ctx.beginPath();
+            ctx.moveTo(0, -15 * scale);
+            ctx.lineTo(-10 * scale, 0);
+            ctx.moveTo(0, -15 * scale);
+            ctx.lineTo(10 * scale, 0);
+            ctx.stroke();
+
+            // Tangan memegang kepala (pusing)
+            ctx.beginPath();
+            ctx.moveTo(0, headY + headRadius * 2 + 8 * scale + breath);
+            ctx.lineTo(-16 * scale, headY + headRadius + 5 * scale);
+            ctx.lineTo(-headRadius + 2, headY + headRadius + breath);
+
+            ctx.moveTo(0, headY + headRadius * 2 + 8 * scale + breath);
+            ctx.lineTo(16 * scale, headY + headRadius + 5 * scale);
+            ctx.lineTo(headRadius - 2, headY + headRadius + breath);
+            ctx.stroke();
+
+            ctx.restore();
+
+            // Teks Overthinking
+            ctx.save();
+            ctx.font = `bold ${Math.round(13 * scale)}px Inter, sans-serif`;
+            ctx.fillStyle = `rgba(255, 255, 255, ${0.75 + Math.sin(time * 3) * 0.25})`;
+            ctx.textAlign = 'center';
+            ctx.fillText("Overthinking", x, y - 82 * scale);
+            ctx.restore();
+        }
+
+        // Stick Figure Kanan (Hard Work)
+        function drawRightFigure(x, y, scale, time, isPushing, isHappy) {
+            drawHeadLight(x, y, 'rgba(255, 220, 100, 0.15)');
+
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 3.5;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+
+            const headRadius = 13 * scale;
+            const bodyLen = 42 * scale;
+            const pushCycle = isPushing ? Math.sin(time * 9) : 0;
+            const tilt = isPushing ? 0.3 : 0;
+            const headY = -bodyLen - headRadius * 2;
+
+            ctx.rotate(tilt);
+
+            // Kepala
+            ctx.beginPath();
+            ctx.arc(0, headY, headRadius, 0, Math.PI * 2);
+            ctx.stroke();
+
+            if (isHappy) {
+                ctx.beginPath();
+                ctx.arc(2 * scale, headY + 2 * scale, 5 * scale, 0.1 * Math.PI, 0.9 * Math.PI);
+                ctx.stroke();
+            }
+
+            // Badan
+            ctx.beginPath();
+            ctx.moveTo(0, headY + headRadius * 2);
+            ctx.lineTo(0, -15 * scale);
+            ctx.stroke();
+
+            // Kaki
+            ctx.beginPath();
+            if (isPushing) {
+                ctx.moveTo(0, -15 * scale);
+                ctx.lineTo(-16 * scale + pushCycle * 10, 0);
+                ctx.moveTo(0, -15 * scale);
+                ctx.lineTo(14 * scale - pushCycle * 10, 0);
+            } else {
+                ctx.moveTo(0, -15 * scale);
+                ctx.lineTo(-10 * scale, 0);
+                ctx.moveTo(0, -15 * scale);
+                ctx.lineTo(10 * scale, 0);
+            }
+            ctx.stroke();
+
+            // Tangan Mendorong
+            ctx.beginPath();
+            if (isPushing) {
+                ctx.moveTo(0, headY + headRadius * 2 + 8 * scale);
+                ctx.lineTo(22 * scale, headY + headRadius * 2 + 4 * scale);
+                ctx.lineTo(34 * scale, headY + headRadius * 2 + 12 * scale);
+
+                ctx.moveTo(0, headY + headRadius * 2 + 12 * scale);
+                ctx.lineTo(20 * scale, headY + headRadius * 2 + 16 * scale);
+                ctx.lineTo(34 * scale, headY + headRadius * 2 + 20 * scale);
+            } else {
+                ctx.moveTo(0, headY + headRadius * 2 + 8 * scale);
+                ctx.lineTo(14 * scale, headY + headRadius * 2 + 18 * scale);
+                ctx.moveTo(0, headY + headRadius * 2 + 8 * scale);
+                ctx.lineTo(-14 * scale, headY + headRadius * 2 + 18 * scale);
+            }
+            ctx.stroke();
+
+            ctx.restore();
+
+            if (currentScene < 3) {
+                ctx.save();
+                ctx.font = `bold ${Math.round(13 * scale)}px Inter, sans-serif`;
+                ctx.fillStyle = '#ffffff';
+                ctx.textAlign = 'center';
+                const textX = x + (isPushing ? 12 * scale : 0);
+                ctx.fillText("Hard Work", textX, y - 82 * scale);
+                ctx.restore();
+            }
+        }
+
+        // Gambar Kotak / Objek
+        function drawBox(x, y, size, radius, rotation) {
+            ctx.save();
+            ctx.translate(x, y - size / 2);
+            ctx.rotate(rotation);
+
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 3.5;
+            ctx.fillStyle = '#000000';
+
+            const half = size / 2;
+
+            ctx.beginPath();
+            ctx.moveTo(-half + radius, -half);
+            ctx.lineTo(half - radius, -half);
+            ctx.quadraticCurveTo(half, -half, half, -half + radius);
+            ctx.lineTo(half, half - radius);
+            ctx.quadraticCurveTo(half, half, half - radius, half);
+            ctx.lineTo(-half + radius, half);
+            ctx.quadraticCurveTo(-half, half, -half, half - radius);
+            ctx.lineTo(-half, -half + radius);
+            ctx.quadraticCurveTo(-half, -half, -half + radius, -half);
+            ctx.closePath();
+
+            ctx.fill();
+            ctx.stroke();
+
+            if (radius > 8) {
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(0, -half + 6);
+                ctx.moveTo(0, 0);
+                ctx.lineTo(half - 6, 0);
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+
+            ctx.restore();
+        }
+
+        // Main Loop Animasi
+        function animate(timestamp) {
+            const dt = (timestamp - lastTime) / 1000;
+            lastTime = timestamp;
+            time += dt;
+
+            ctx.clearRect(0, 0, width, height);
+            
+            // Gambar Background Berpindah-pindah (20 Partikel)
+            drawBackgroundParticles(dt);
+            
+            drawGround();
+
+            const centerX = width / 2;
+            const leftX = centerX - (110 * scale);
+            const boxBaseSize = 60 * scale;
+            box.size = boxBaseSize;
+
+            if (currentScene === 1) {
+                const rightX = centerX - (15 * scale);
+                const boxX = centerX + (80 * scale);
+
+                box.cornerRadius = 0;
+                box.rotation = 0;
+
+                drawLeftFigure(leftX, groundY, scale, time);
+                drawRightFigure(rightX, groundY, scale, time, false, false);
+                drawBox(boxX, groundY, box.size, box.cornerRadius, box.rotation);
+
+            } else if (currentScene === 2) {
+                box.pushDistance += dt * 40 * scale;
+                if (box.pushDistance > width * 0.18) {
+                    box.pushDistance = width * 0.18;
+                }
+
+                if (box.cornerRadius < box.size / 2) {
+                    box.cornerRadius += dt * 14 * scale;
+                    if (box.cornerRadius > box.size / 2) box.cornerRadius = box.size / 2;
+                }
+
+                const rightX = centerX - (25 * scale) + box.pushDistance;
+                const boxX = centerX + (65 * scale) + box.pushDistance;
+                box.rotation = box.pushDistance * 0.025;
+
+                drawLeftFigure(leftX, groundY, scale, time);
+                drawRightFigure(rightX, groundY, scale, time, true, false);
+                drawBox(boxX, groundY, box.size, box.cornerRadius, box.rotation);
+
+            } else if (currentScene === 3) {
+                box.cornerRadius = box.size / 2;
+                box.pushDistance += dt * 100 * scale;
+
+                const startBoxX = centerX + (65 * scale);
+                let currentBoxX = startBoxX + box.pushDistance;
+                
+                const radius = box.size / 2;
+                box.rotation = box.pushDistance / radius;
+
+                const rightX = currentBoxX - radius - (12 * scale);
+
+                drawLeftFigure(leftX, groundY, scale, time);
+                drawRightFigure(rightX, groundY, scale, time, true, true);
+                drawBox(currentBoxX, groundY, box.size, box.cornerRadius, box.rotation);
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        function updateSceneUI() {
+            dots.forEach((dot, index) => {
+                if (index === currentScene - 1) {
+                    dot.classList.remove('bg-white/30', 'w-2');
+                    dot.classList.add('bg-white', 'w-5');
+                } else {
+                    dot.classList.remove('bg-white', 'w-5');
+                    dot.classList.add('bg-white/30', 'w-2');
+                }
+            });
+
+            if (currentScene === 3) {
+                scene3Overlay.classList.remove('opacity-0', 'pointer-events-none');
+                scene3Overlay.classList.add('opacity-100', 'pointer-events-auto');
+            } else {
+                scene3Overlay.classList.remove('opacity-100', 'pointer-events-auto');
+                scene3Overlay.classList.add('opacity-0', 'pointer-events-none');
+            }
+        }
+
+        nextBtn.addEventListener('click', () => {
+            if (currentScene < 3) {
+                currentScene++;
+            } else {
+                currentScene = 1;
+                box.pushDistance = 0;
+                box.cornerRadius = 0;
+            }
+            updateSceneUI();
+        });
+
+        window.onload = () => {
+            lastTime = performance.now();
+            animate(lastTime);
+            updateSceneUI();
+        };
+    </script>
+</body>
+</html>
